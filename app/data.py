@@ -3,7 +3,7 @@ from datetime import datetime
 
 # --- MOCK DATA STORE (Singleton Pattern for In-Memory Database) ---
 
-BRAND_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/vi/2/25/Logo_%C4%90%E1%BA%A1i_h%E1%BB%8Dc_Y_D%C6%B0%E1%BB%A3c_C%E1%BA%A7n_Th%C6%A1.png'
+BRAND_LOGO_URL = "/static/images/logo.png"
 
 class DataStore:
     def __init__(self):

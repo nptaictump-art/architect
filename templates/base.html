@@ -1,77 +1,374 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SciEquip Management{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              primary: '#0f766e',
-              secondary: '#0e7490',
-            }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ home_config.appName if home_config and home_config.appName else "SciEquip Management" }}{% endblock %}</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#0f766e",
+            secondary: "#0e7490"
           }
         }
       }
-    </script>
-    <style>
-        .no-print { @media print { display: none; } }
-    </style>
+    };
+  </script>
+
+  <style>
+    @media print { .no-print { display: none !important; } }
+  </style>
+
+  {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
 
-    <!-- HEADER -->
-    <header class="bg-primary text-white shadow-md sticky top-0 z-50 h-16 no-print">
-        <div class="container mx-auto px-4 h-full flex items-center justify-between">
-            <a href="/" class="flex items-center gap-2 hover:opacity-90 transition">
-                <img src="{{ brand_logo }}" alt="Logo" class="w-8 h-8 bg-white rounded p-0.5">
-                <span class="text-lg font-bold truncate hidden sm:block">{{ home_config.appName }}</span>
-            </a>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col pt-16">
+{% set path = request.url.path %}
 
-            <nav class="hidden md:flex items-center gap-1">
-                <a href="/" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="home" class="w-4 h-4"></i> Trang chủ</a>
-                <a href="/equipment" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="box" class="w-4 h-4"></i> Thiết bị</a>
-                <a href="/bookings" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Vận hành</a>
-                {% if current_user and current_user.role in ['ADMIN', 'STAFF'] %}
-                <a href="/admin" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="shield-alert" class="w-4 h-4"></i> Quản trị</a>
-                {% endif %}
-            </nav>
+{% set labels = (home_config.menuLabels if home_config and home_config.menuLabels else {}) %}
+{% set label_home = labels.home if labels and labels.home else "Trang chủ" %}
+{% set label_equipment = labels.equipment if labels and labels.equipment else "Thiết bị" %}
+{% set label_booking = labels.booking if labels and labels.booking else "Vận hành" %}
+{% set label_maintenance = labels.maintenance if labels and labels.maintenance else "Sửa chữa" %}
+{% set label_inventory = labels.inventory if labels and labels.inventory else "Kiểm kê" %}
+{% set label_admin = labels.admin if labels and labels.admin else "Quản trị" %}
 
-            <div class="flex items-center gap-4">
-                {% if current_user %}
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-semibold"><i data-lucide="user" class="w-4 h-4 inline"></i> {{ current_user.name }}</span>
-                        <a href="/logout" class="p-2 hover:bg-red-600 rounded-full transition" title="Đăng xuất"><i data-lucide="log-out" class="w-4 h-4"></i></a>
-                    </div>
-                {% else %}
-                    <a href="/login" class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-bold">
-                        <i data-lucide="log-in" class="w-4 h-4"></i> Đăng nhập
-                    </a>
-                {% endif %}
+{% set is_manager = (current_user is not none) and (current_user.role in ["ADMIN","STAFF"]) %}
+{% set is_admin = (current_user is not none) and (current_user.role == "ADMIN") %}
+
+<!-- HEADER - Fixed at Top (match Layout.tsx) -->
+<header class="bg-primary text-white shadow-md fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300 no-print">
+  <div class="container mx-auto px-4 h-full flex items-center justify-between">
+
+    <!-- Logo & Brand -->
+    <a href="/" class="flex items-center gap-2 hover:opacity-90 transition-opacity mr-auto md:mr-8 max-w-[75%] md:max-w-none">
+      {% if home_config and home_config.logo %}
+        <img src="{{ home_config.logo }}" alt="Logo"
+             class="w-8 h-8 md:w-9 md:h-9 object-contain bg-white rounded p-0.5 shrink-0" />
+      {% else %}
+        <i data-lucide="box" class="w-8 h-8 shrink-0"></i>
+      {% endif %}
+
+      <span class="text-xs font-bold sm:text-lg md:text-xl leading-tight line-clamp-2 md:whitespace-nowrap">
+        {{ home_config.appName if home_config and home_config.appName else "SciEquip Management" }}
+      </span>
+    </a>
+
+    <!-- Desktop Nav -->
+    <nav class="hidden md:flex items-center gap-1 flex-1">
+      <a href="/"
+         class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                {% if path == '/' %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+        <i data-lucide="home" class="w-5 h-5"></i>
+        <span>{{ label_home }}</span>
+      </a>
+
+      <a href="/equipment"
+         class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                {% if path.startswith('/equipment') %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+        <i data-lucide="box" class="w-5 h-5"></i>
+        <span>{{ label_equipment }}</span>
+      </a>
+
+      <a href="/bookings"
+         class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                {% if path.startswith('/bookings') %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+        <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+        <span>{{ label_booking }}</span>
+      </a>
+
+      {% if is_manager %}
+        <a href="/maintenance"
+           class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                  {% if path.startswith('/maintenance') %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+          <i data-lucide="wrench" class="w-5 h-5"></i>
+          <span>{{ label_maintenance }}</span>
+        </a>
+
+        <a href="/inventory"
+           class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                  {% if path.startswith('/inventory') %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+          <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+          <span>{{ label_inventory }}</span>
+        </a>
+      {% endif %}
+
+      {% if is_admin %}
+        <a href="/admin"
+           class="flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium
+                  {% if path.startswith('/admin') %}bg-white/20 text-white shadow-inner{% else %}text-white/80 hover:bg-white/10 hover:text-white{% endif %}">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          <span>{{ label_admin }}</span>
+        </a>
+      {% endif %}
+    </nav>
+
+    <!-- Right Side: Login / User Profile (Desktop) -->
+    <div class="hidden md:flex items-center gap-4 ml-auto pl-4">
+      {% if current_user %}
+        <div class="flex items-center gap-3 border-l border-white/20 pl-4">
+          <a href="/profile" class="text-right hover:opacity-80 transition">
+            <div class="font-semibold text-sm flex items-center gap-1 justify-end">
+              <i data-lucide="user" class="w-4 h-4"></i> {{ current_user.name }}
             </div>
+          </a>
+          <a href="/logout" class="p-2 hover:bg-red-600 rounded-full transition" title="Đăng xuất">
+            <i data-lucide="log-out" class="w-[18px] h-[18px]"></i>
+          </a>
         </div>
-    </header>
+      {% else %}
+        <a href="/login"
+           class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm font-bold shadow-sm border border-white/10"
+           title="Đăng nhập hoặc Đăng ký">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>Đăng nhập / Đăng ký</span>
+        </a>
+      {% endif %}
+    </div>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 container mx-auto px-4 py-6 max-w-7xl">
-        {% block content %}{% endblock %}
-    </main>
+    <!-- Mobile Toggle + Mobile Login Icon -->
+    <div class="flex items-center gap-2 md:hidden">
+      {% if not current_user %}
+        <a href="/login" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded mr-1" title="Đăng nhập">
+          <i data-lucide="log-in" class="w-[22px] h-[22px]"></i>
+        </a>
+      {% endif %}
 
-    <!-- FOOTER -->
-    <footer class="bg-slate-900 text-slate-300 py-8 mt-auto no-print">
-        <div class="container mx-auto px-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-widest text-teal-500 mb-2">Khoa Khoa Học Cơ Bản - CTUMP</p>
-            <p class="text-xs text-slate-500">Hệ thống quản lý trang thiết bị hiện đại version 2.0 (Python)</p>
+      <button id="mobileMenuBtn" class="p-2 hover:bg-white/10 rounded" aria-label="Toggle menu">
+        <i data-lucide="menu" class="w-6 h-6" id="menuIcon"></i>
+        <i data-lucide="x" class="w-6 h-6 hidden" id="closeIcon"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile Menu (match Layout.tsx structure/feel) -->
+<div id="mobileMenu"
+     class="md:hidden hidden bg-white border-b shadow-lg fixed top-16 left-0 right-0 z-40 max-h-[calc(100vh-64px)] overflow-y-auto no-print">
+  <div class="flex flex-col p-4 gap-2">
+
+    {% if current_user %}
+      <div class="mb-4 pb-4 border-b flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+        <a href="/profile" class="cursor-pointer">
+          <div class="font-bold text-gray-800 flex items-center gap-2">
+            <i data-lucide="user" class="w-4 h-4 text-primary"></i> {{ current_user.name }}
+          </div>
+        </a>
+        <a href="/logout"
+           class="text-red-600 font-medium text-sm flex items-center gap-1 bg-white border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Thoát
+        </a>
+      </div>
+    {% else %}
+      <a href="/login"
+         class="mb-4 pb-4 border-b flex items-center gap-3 p-3 rounded-lg bg-blue-50 text-blue-700 font-bold">
+        <i data-lucide="log-in" class="w-5 h-5"></i> Đăng nhập / Đăng ký
+      </a>
+    {% endif %}
+
+    <!-- Mobile nav items -->
+    <a href="/"
+       class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+              {% if path == '/' %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+      <i data-lucide="home" class="w-5 h-5"></i>
+      <span>{{ label_home }}</span>
+      {% if path == '/' %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+    </a>
+
+    <a href="/equipment"
+       class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+              {% if path.startswith('/equipment') %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+      <i data-lucide="box" class="w-5 h-5"></i>
+      <span>{{ label_equipment }}</span>
+      {% if path.startswith('/equipment') %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+    </a>
+
+    <a href="/bookings"
+       class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+              {% if path.startswith('/bookings') %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+      <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+      <span>{{ label_booking }}</span>
+      {% if path.startswith('/bookings') %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+    </a>
+
+    {% if is_manager %}
+      <a href="/maintenance"
+         class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                {% if path.startswith('/maintenance') %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+        <i data-lucide="wrench" class="w-5 h-5"></i>
+        <span>{{ label_maintenance }}</span>
+        {% if path.startswith('/maintenance') %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+      </a>
+
+      <a href="/inventory"
+         class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                {% if path.startswith('/inventory') %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+        <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+        <span>{{ label_inventory }}</span>
+        {% if path.startswith('/inventory') %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+      </a>
+    {% endif %}
+
+    {% if is_admin %}
+      <a href="/admin"
+         class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                {% if path.startswith('/admin') %}bg-primary/10 text-primary font-bold border-l-4 border-primary{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        <span>{{ label_admin }}</span>
+        {% if path.startswith('/admin') %}<i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>{% endif %}
+      </a>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="flex-1 container mx-auto px-4 py-6 max-w-7xl">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- AI Assistant -->
+{% include "partials/ai_floating.html" %}
+<!-- FOOTER - 4 columns like Layout.tsx -->
+<footer class="bg-slate-900 text-slate-300 pt-12 pb-6 mt-auto no-print text-[13px] border-t border-slate-800">
+  <div class="container mx-auto px-4 max-w-7xl">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+
+      <!-- Block 1 -->
+      <div class="space-y-4">
+        <div>
+          <h4 class="text-teal-500 font-bold uppercase mb-2 text-sm tracking-widest border-b-2 border-teal-500/20 pb-2 inline-block">
+            KHOA KHOA HỌC CƠ BẢN
+          </h4>
+          <p class="text-white font-semibold text-xs uppercase tracking-wide">Trường Đại học Y Dược Cần Thơ</p>
         </div>
-    </footer>
+        <p class="text-slate-400 text-justify leading-relaxed">
+          Hệ thống quản lý trang thiết bị hiện đại, phục vụ công tác giảng dạy và nghiên cứu khoa học.
+        </p>
+      </div>
 
-    <script>
-        lucide.createIcons();
-    </script>
-    {% block scripts %}{% endblock %}
+      <!-- Block 2 -->
+      <div class="space-y-4">
+        <h4 class="text-teal-500 font-bold uppercase mb-4 text-sm tracking-widest border-b-2 border-teal-500/20 pb-2 inline-block">
+          ĐỊA CHỈ LIÊN HỆ
+        </h4>
+        <div class="flex items-start gap-3">
+          <i data-lucide="map-pin" class="w-[18px] h-[18px] text-teal-500 shrink-0 mt-0.5"></i>
+          <p class="text-slate-400 leading-relaxed">
+            {{ home_config.contactAddress if home_config and home_config.contactAddress else "179 Nguyễn Văn Cừ, P. An Khánh, Q. Ninh Kiều, TP. Cần Thơ" }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Block 3 -->
+      <div class="space-y-4">
+        <h4 class="text-teal-500 font-bold uppercase mb-4 text-sm tracking-widest border-b-2 border-teal-500/20 pb-2 inline-block">
+          KẾT NỐI
+        </h4>
+        <ul class="space-y-3 text-slate-400">
+          <li class="flex items-center gap-3 group">
+            <i data-lucide="mail" class="w-4 h-4 text-teal-500 group-hover:text-white transition-colors"></i>
+            <a href="mailto:{{ home_config.contactEmail if home_config and home_config.contactEmail else 'khoakhcb@ctump.edu.vn' }}"
+               class="hover:text-white transition-colors">
+              {{ home_config.contactEmail if home_config and home_config.contactEmail else "khoakhcb@ctump.edu.vn" }}
+            </a>
+          </li>
+
+          <li class="flex items-center gap-3 group">
+            <i data-lucide="phone" class="w-4 h-4 text-teal-500 group-hover:text-white transition-colors"></i>
+            <a href="tel:{{ home_config.contactHotline if home_config and home_config.contactHotline else '(0292) 3 739 730' }}"
+               class="hover:text-white transition-colors">
+              {{ home_config.contactHotline if home_config and home_config.contactHotline else "(0292) 3 739 730" }}
+            </a>
+          </li>
+
+          <li class="flex items-center gap-3 group">
+            <i data-lucide="globe" class="w-4 h-4 text-teal-500 group-hover:text-white transition-colors"></i>
+            <a href="http://ctump.edu.vn" target="_blank" rel="noreferrer" class="hover:text-white transition-colors">
+              Website Trường ĐH Y Dược Cần Thơ
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Block 4 -->
+      <div class="space-y-4">
+        <h4 class="text-teal-500 font-bold uppercase mb-4 text-sm tracking-widest border-b-2 border-teal-500/20 pb-2 inline-block">
+          THỐNG KÊ TRUY CẬP
+        </h4>
+        <div class="bg-slate-800/80 p-4 rounded-lg border border-slate-700 shadow-inner">
+          <div class="flex items-center gap-3 mb-1">
+            <i data-lucide="bar-chart-2" class="w-6 h-6 text-yellow-500"></i>
+            <div>
+              <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Lượt truy cập</div>
+              <div class="text-xl font-mono font-bold text-white tracking-widest">
+                {{ "{:,}".format(visit_count if visit_count is not none else (home_config.visitorCount if home_config and home_config.visitorCount else 0)).replace(",", ".") }}
+              </div>
+            </div>
+          </div>
+          <div class="h-px bg-slate-700 my-2"></div>
+          <p class="text-[11px] text-slate-500 italic">Cảm ơn bạn đã ghé thăm hệ thống.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="border-t border-slate-800 pt-6 text-center">
+      <p class="text-[11px] text-slate-600 font-medium tracking-wide">
+        &copy; {{ current_year if current_year else 2025 }} Khoa Khoa Học Cơ Bản - CTUMP. All rights reserved.
+      </p>
+    </div>
+
+  </div>
+</footer>
+
+<script>
+  // Render Lucide icons
+  lucide.createIcons();
+
+  // Mobile menu toggle (match Layout.tsx behavior)
+  const btn = document.getElementById("mobileMenuBtn");
+  const menu = document.getElementById("mobileMenu");
+  const menuIcon = document.getElementById("menuIcon");
+  const closeIcon = document.getElementById("closeIcon");
+
+  if (btn && menu && menuIcon && closeIcon) {
+    btn.addEventListener("click", () => {
+      const isOpen = !menu.classList.contains("hidden");
+      if (isOpen) {
+        menu.classList.add("hidden");
+        menuIcon.classList.remove("hidden");
+        closeIcon.classList.add("hidden");
+      } else {
+        menu.classList.remove("hidden");
+        menuIcon.classList.add("hidden");
+        closeIcon.classList.remove("hidden");
+      }
+      // Re-render icons after toggling (safe)
+      lucide.createIcons();
+    });
+
+    // Auto-close menu when clicking any link inside (similar to setIsMobileMenuOpen(false))
+    menu.querySelectorAll("a").forEach(a => {
+      a.addEventListener("click", () => {
+        menu.classList.add("hidden");
+        menuIcon.classList.remove("hidden");
+        closeIcon.classList.add("hidden");
+      });
+    });
+  }
+</script>
+
+{% block scripts %}{% endblock %}
 </body>
 </html>

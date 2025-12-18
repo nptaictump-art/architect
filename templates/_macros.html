@@ -1,0 +1,9 @@
+{% macro info_row(label, value, isMono=False) %}
+  <div class="flex justify-between items-center py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 px-2 rounded transition-colors">
+    <span class="text-sm text-gray-500">{{ label }}</span>
+    <span class="font-medium text-gray-900 text-right
+      {% if isMono %} font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded {% else %} text-sm {% endif %}">
+      {{ value }}
+    </span>
+  </div>
+{% endmacro %}

@@ -1,0 +1,220 @@
+<!-- templates/assistant.html -->
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+  .ai-message-user {
+    @apply max-w-[85%] bg-primary text-white rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm rounded-br-none;
+  }
+  .ai-message-model {
+    @apply max-w-[85%] bg-white text-gray-800 border border-gray-100 rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm rounded-bl-none;
+  }
+  .ai-message-error {
+    @apply max-w-[85%] bg-red-50 text-red-700 border border-red-100 rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm rounded-bl-none;
+  }
+  .ai-header-gradient {
+    background: linear-gradient(to right, #0d9488, #0891b2);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Floating Button -->
+<div id="ai-float-btn" class="fixed bottom-6 right-6 z-50 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all w-16 h-16 flex items-center justify-center group no-print bg-white overflow-hidden border-2 border-primary/20 p-2 cursor-pointer" title="Trợ lý ảo AI">
+  <img src="https://cdn-icons-png.flaticon.com/512/8943/8943377.png" alt="AI Bot" class="w-full h-full object-contain" />
+  <div class="absolute inset-0 bg-primary/5 group-hover:bg-transparent transition-colors rounded-full"></div>
+</div>
+
+<!-- Chat Window (ẩn mặc định) -->
+<div id="ai-chat-container" class="fixed bottom-6 right-6 z-50 w-[90vw] md:w-96 h-[550px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden hidden no-print">
+  <!-- Header -->
+  <div class="ai-header-gradient p-4 flex justify-between items-center text-white shrink-0">
+    <div class="flex items-center gap-2">
+      <div class="bg-white rounded-full p-1 w-10 h-10 flex items-center justify-center overflow-hidden shadow-sm">
+        <img src="https://cdn-icons-png.flaticon.com/512/8943/8943377.png" alt="Bot" class="w-full h-full object-contain" />
+      </div>
+      <div>
+        <h3 class="font-bold text-sm">Trợ lý SciEquip</h3>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          <span class="text-[10px] opacity-90">Gemini 3 Flash</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1">
+      <button id="ai-reset-btn" class="p-1.5 hover:bg-white/10 rounded-lg text-white/80 hover:text-white" title="Làm mới hội thoại">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21v-1a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7Z"></path><line x1="12" x2="12" y1="10" y2="16"></line><line x1="8" x2="16" y1="12" y2="12"></line></svg>
+      </button>
+      <button id="ai-close-btn" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages Area -->
+  <div id="ai-messages" class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+    <div class="flex justify-start">
+      <div class="ai-message-model">
+        <div class="flex items-center gap-1.5 mb-1 text-xs font-bold text-primary/80">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          AI Assistant
+        </div>
+        Xin chào! Tôi là trợ lý ảo AI của SciEquip. Tôi có thể giúp gì cho bạn hôm nay?
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="p-3 bg-white border-t flex gap-2 shrink-0">
+    <input
+      type="text"
+      id="ai-input"
+      placeholder="Hỏi về thiết bị..."
+      class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent bg-gray-50 focus:bg-white transition-all"
+      disabled
+    />
+    <button
+      id="ai-send-btn"
+      disabled
+      class="bg-primary text-white p-2.5 rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="2" y1="24" y2="0"></line><polyline points="6 6 6 21 16 21 16 14"></polyline></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Loading indicator template (ẩn) -->
+<div id="ai-loading-template" class="flex justify-start hidden">
+  <div class="bg-white border border-gray-100 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin text-primary">
+      <line x1="12" x2="2" y1="2" y2="6"></line><line x1="12" x2="22" y1="2" y2="6"></line><line x1="12" x2="2" y1="22" y2="18"></line><line x1="12" x2="22" y1="22" y2="18"></line>
+    </svg>
+    <span class="text-xs text-gray-500">Đang suy nghĩ...</span>
+  </div>
+</div>
+
+<script>
+  // === JS cho AI Assistant ===
+  const floatBtn = document.getElementById('ai-float-btn');
+  const chatContainer = document.getElementById('ai-chat-container');
+  const messagesDiv = document.getElementById('ai-messages');
+  const inputEl = document.getElementById('ai-input');
+  const sendBtn = document.getElementById('ai-send-btn');
+  const resetBtn = document.getElementById('ai-reset-btn');
+  const closeBtn = document.getElementById('ai-close-btn');
+
+  let chatHistory = [
+    { role: 'model', text: 'Xin chào! Tôi là trợ lý ảo AI của SciEquip. Tôi có thể giúp gì cho bạn hôm nay?' }
+  ];
+
+  function updateInputState() {
+    const val = inputEl.value.trim();
+    sendBtn.disabled = !val;
+  }
+
+  function addMessage(role, text, isError = false) {
+    const div = document.createElement('div');
+    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    
+    const msgDiv = document.createElement('div');
+    if (role === 'user') {
+      msgDiv.className = 'ai-message-user';
+    } else if (isError) {
+      msgDiv.className = 'ai-message-error';
+    } else {
+      msgDiv.className = 'ai-message-model';
+      if (!isError) {
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-1.5 mb-1 text-xs font-bold text-primary/80';
+        header.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> AI Assistant';
+        msgDiv.appendChild(header);
+      }
+    }
+    msgDiv.textContent = text;
+    div.appendChild(msgDiv);
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    // Add user message
+    addMessage('user', text);
+    chatHistory.push({ role: 'user', text });
+
+    // Clear input
+    inputEl.value = '';
+    updateInputState();
+    
+    // Show loading
+    const loadingEl = document.getElementById('ai-loading-template').cloneNode(true);
+    loadingEl.classList.remove('hidden');
+    loadingEl.id = '';
+    messagesDiv.appendChild(loadingEl);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: chatHistory,
+          // Optional: gửi thêm context server-side (không cần gửi full equipment/labs từ client)
+        })
+      });
+
+      const loading = messagesDiv.lastElementChild;
+      if (loading) messagesDiv.removeChild(loading);
+
+      if (!res.ok) throw new Error('Lỗi kết nối AI');
+
+      const data = await res.json();
+      if (data.success) {
+        addMessage('model', data.response);
+        chatHistory.push({ role: 'model', text: data.response });
+      } else {
+        addMessage('model', data.message || 'Không thể kết nối AI.', true);
+      }
+    } catch (err) {
+      const loading = messagesDiv.lastElementChild;
+      if (loading) messagesDiv.removeChild(loading);
+      addMessage('model', 'Xin lỗi, đã có lỗi xảy ra khi kết nối với máy chủ AI.', true);
+      console.error('AI Error:', err);
+    }
+  }
+
+  function resetChat() {
+    chatHistory = [{ role: 'model', text: 'Đã làm mới hội thoại. Tôi có thể giúp gì cho bạn?' }];
+    messagesDiv.innerHTML = '';
+    addMessage('model', 'Đã làm mới hội thoại. Tôi có thể giúp gì cho bạn?');
+  }
+
+  // === Event Listeners ===
+  floatBtn.addEventListener('click', () => {
+    chatContainer.classList.remove('hidden');
+    floatBtn.classList.add('hidden');
+    inputEl.disabled = false;
+    inputEl.focus();
+  });
+
+  closeBtn.addEventListener('click', () => {
+    chatContainer.classList.add('hidden');
+    floatBtn.classList.remove('hidden');
+  });
+
+  resetBtn.addEventListener('click', resetChat);
+
+  inputEl.addEventListener('input', updateInputState);
+  inputEl.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+</script>
+{% endblock %}

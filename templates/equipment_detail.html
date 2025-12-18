@@ -1,68 +1,757 @@
 {% extends "base.html" %}
-
+{% from "_macros.html" import info_row %}
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-6">
-    <div class="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col md:flex-row">
-        <div class="w-full md:w-1/3 bg-gray-100 p-4 flex items-center justify-center">
-            <img src="{{ item.images[0] }}" class="max-h-64 object-contain rounded-lg shadow-sm">
-        </div>
-        <div class="flex-1 p-6">
-            <div class="flex justify-between items-start">
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ item.name }}</h1>
-                <span class="px-3 py-1 bg-gray-100 rounded text-sm font-mono font-bold">{{ item.code }}</span>
-            </div>
-            <div class="flex items-center gap-2 mb-4">
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">{{ item.status }}</span>
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> {{ item.location }}</span>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-6">
-                <div><strong>Model:</strong> {{ item.model }}</div>
-                <div><strong>Serial:</strong> {{ item.serial }}</div>
-                <div><strong>Quản lý:</strong> {{ manager.name }}</div>
-                <div><strong>Nhập kho:</strong> {{ item.receiveDate }}</div>
-            </div>
 
-            <div class="flex gap-3">
-                <button class="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-primary/90 shadow transition flex items-center justify-center gap-2">
-                    <i data-lucide="play-circle"></i> Đăng ký mượn
-                </button>
-                <button class="flex-1 bg-white border border-red-200 text-red-600 py-3 rounded-xl font-bold hover:bg-red-50 transition flex items-center justify-center gap-2">
-                    <i data-lucide="alert-triangle"></i> Báo hỏng
-                </button>
-            </div>
-        </div>
+{# ===============================
+  REQUIRED CONTEXT (gợi ý)
+  item: equipment object
+  manager: user object | None
+  is_logged_in: bool
+  is_manager: bool
+  base_url: "https://domain.com" (có thể có/không có / cuối)
+  home_config: { appName, logo } | None
+  logs, tickets, movements: arrays (đã lọc theo equipmentId nếu có)
+  currentUser: user | None
+  bookings: array (để check overlap nếu muốn)
+================================ #}
+
+<style>
+  /* Print helpers */
+  .no-print { display: block; }
+  .print-only { display: none; }
+  @media print {
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+  }
+</style>
+
+<div class="animate-fade-in-up pb-10 print-container max-w-7xl mx-auto">
+
+  <!-- Breadcrumbs -->
+  <div class="flex items-center gap-2 text-sm text-gray-500 mb-6 no-print">
+    <a href="{{ '/' }}" class="hover:text-primary" title="Trang chủ">
+      <svg class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none">
+        <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5Z"
+              stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </a>
+    <span>›</span>
+    <a href="{{ '/equipment' }}" class="hover:text-primary">Danh sách thiết bị</a>
+    <span>›</span>
+    <span class="font-semibold text-gray-800">{{ item.name }}</span>
+  </div>
+
+  <!-- HERO -->
+  <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8 no-print">
+
+    <!-- LEFT: IMAGE GALLERY -->
+    <div class="md:col-span-5 flex flex-col gap-4">
+      <div class="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 aspect-[4/3] relative group overflow-hidden">
+        <img id="mainImage"
+             src="{{ (item.images[0] if item.images and item.images|length>0 else 'https://picsum.photos/400/300') }}"
+             alt="{{ item.name }}"
+             class="w-full h-full object-contain rounded-xl transition-transform duration-500 group-hover:scale-105"/>
+      </div>
+
+      {% if item.images and item.images|length > 1 %}
+      <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
+        {% for img in item.images %}
+        <button type="button"
+                class="thumbBtn w-20 h-20 shrink-0 rounded-lg border-2 overflow-hidden transition-all
+                       {{ 'border-primary ring-2 ring-primary/20 opacity-100' if loop.index0==0 else 'border-transparent opacity-60 hover:opacity-100' }}"
+                data-img="{{ img }}"
+                data-idx="{{ loop.index0 }}">
+          <img src="{{ img }}" class="w-full h-full object-cover" alt="thumb-{{ loop.index0 }}"/>
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
 
-    <!-- TABS MOCKUP -->
-    <div class="bg-white rounded-xl shadow-sm border p-6">
-        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-            <i data-lucide="history"></i> Lịch sử hoạt động
-        </h3>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-gray-50 border-b">
-                    <tr>
-                        <th class="p-3">Thời gian</th>
-                        <th class="p-3">Người dùng</th>
-                        <th class="p-3">Mục đích</th>
-                        <th class="p-3">Kết quả</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    {% for log in logs %}
-                    <tr>
-                        <td class="p-3">{{ log.startTime }}</td>
-                        <td class="p-3">{{ log.guestName }}</td>
-                        <td class="p-3">{{ log.purpose }}</td>
-                        <td class="p-3">{{ log.postStatus }}</td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="4" class="p-4 text-center text-gray-400">Chưa có lịch sử.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- RIGHT: INFO & ACTIONS -->
+    <div class="md:col-span-7 flex flex-col">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+
+        <div class="flex justify-between items-start gap-4 mb-6">
+          <div class="flex-1">
+
+            <!-- Status badge -->
+            {% set status = item.status %}
+            {% set badge_class =
+              'bg-green-100 text-green-700 border-green-200' if status=='AVAILABLE' else
+              'bg-blue-100 text-blue-700 border-blue-200' if status=='IN_USE' else
+              'bg-yellow-100 text-yellow-700 border-yellow-200' if status=='MAINTENANCE' else
+              'bg-red-100 text-red-700 border-red-200' if status=='BROKEN' else
+              'bg-gray-100 text-gray-700 border-gray-200'
+            %}
+            <span class="px-3 py-1 rounded-full text-sm font-bold border flex items-center gap-1.5 w-fit {{ badge_class }}">
+              <span class="w-2 h-2 rounded-full
+                {{ 'bg-green-500' if status=='AVAILABLE' else
+                   'bg-red-500' if status=='BROKEN' else 'bg-current' }}"></span>
+
+              {{ (STATUS_TRANS[status] if STATUS_TRANS is defined else status) }}
+            </span>
+
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3 leading-tight mt-3">
+              {{ item.name }}
+            </h1>
+
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <div class="flex items-center gap-2 text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
+                <span class="font-medium text-gray-700">{{ item.location }}</span>
+              </div>
+
+              <button type="button"
+                      id="btnPrintInfo"
+                      class="flex items-center gap-1.5 bg-white hover:bg-gray-50 text-gray-700 px-3 py-1 rounded-lg transition-colors text-xs font-bold border border-gray-300 shadow-sm"
+                      title="Xem và In thẻ tài sản">
+                <span class="text-gray-900 font-mono">{{ item.code }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- QR CODE -->
+          <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm shrink-0">
+            <div id="qrCode" class="w-[110px] h-[110px]"></div>
+          </div>
         </div>
+
+        <!-- Key stats -->
+        <div class="grid grid-cols-2 gap-4 mb-8">
+          <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+            <div class="text-xs text-gray-500 mb-1">Model / Serial</div>
+            <div class="font-semibold text-gray-800 text-sm truncate">{{ item.model or '---' }}</div>
+            <div class="text-xs text-gray-400 truncate font-mono">{{ item.serial or 'N/A' }}</div>
+          </div>
+
+          <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+            <div class="text-xs text-gray-500 mb-1">Cán bộ quản lý</div>
+            <div class="font-semibold text-gray-800 text-sm">{{ manager.name if manager else (item.managerId or '---') }}</div>
+            <div class="text-xs text-primary font-bold">
+              {{ manager.phone if manager and manager.phone else 'Chưa cập nhật SĐT' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        {% set can_report = (is_logged_in and item and item.status in ['AVAILABLE','IN_USE']) %}
+        {% set can_book = (is_logged_in and item and item.status not in ['BROKEN','MAINTENANCE','LIQUIDATED']) %}
+
+        <div class="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button type="button"
+                  id="btnBook"
+                  {{ 'disabled' if not can_book else '' }}
+                  class="py-3 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-teal-500 text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none">
+            Đăng Ký Sử Dụng
+          </button>
+
+          <button type="button"
+                  id="btnReport"
+                  {{ 'disabled' if not can_report else '' }}
+                  class="py-3 px-6 rounded-xl font-bold shadow-sm border hover:bg-gray-50 transition-all flex items-center justify-center gap-2
+                    {{ 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' if not can_report else 'bg-white text-red-600 border-red-200' }}">
+            Báo Hỏng / Sự Cố
+          </button>
+        </div>
+
+        {% if not is_logged_in %}
+        <div class="text-center mt-3 text-xs text-red-600 font-medium bg-red-50 p-2 rounded-lg border border-red-100">
+          Vui lòng đăng nhập để thực hiện Đăng ký hoặc Báo hỏng.
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="mb-6 overflow-x-auto no-print">
+    <div class="flex bg-gray-100/50 p-1.5 rounded-xl w-fit border border-gray-200">
+      <button class="tabBtn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap bg-white text-primary shadow-sm ring-1 ring-black/5"
+              data-tab="INFO">Thông tin chung</button>
+
+      <button class="tabBtn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+              data-tab="HISTORY">Lịch sử dùng</button>
+
+      {% if is_manager %}
+      <button class="tabBtn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+              data-tab="MAINTENANCE">Bảo trì &amp; Sửa chữa</button>
+
+      <button class="tabBtn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+              data-tab="MOVEMENT">Di chuyển</button>
+      {% endif %}
+
+      <button class="tabBtn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+              data-tab="SOP">Tài liệu (SOP)</button>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <div class="no-print min-h-[400px]">
+
+    <!-- INFO -->
+    <section id="tab-INFO" class="tabPanel space-y-6 animate-fade-in-up">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-blue-50 p-6 rounded-2xl shadow-sm border border-blue-100">
+          <h3 class="font-bold text-blue-900 mb-3 text-lg">Giới thiệu thiết bị</h3>
+          <div class="text-gray-700 leading-relaxed whitespace-pre-line text-sm">
+            {{ item.introduction or "Chưa có thông tin giới thiệu cho thiết bị này." }}
+          </div>
+        </div>
+        <div class="bg-indigo-50 p-6 rounded-2xl shadow-sm border border-indigo-100">
+          <h3 class="font-bold text-indigo-900 mb-3 text-lg">Ứng dụng thực tế</h3>
+          <div class="text-gray-700 leading-relaxed whitespace-pre-line text-sm">
+            {{ item.application or "Chưa có thông tin ứng dụng cho thiết bị này." }}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 class="font-bold text-gray-800 mb-4">Thông số kỹ thuật</h3>
+
+          <div class="space-y-3">
+            {{ info_row("Tên thiết bị", item.name) }}
+            {{ info_row("Mã quản lý", item.code, True) }}
+            {{ info_row("Model", item.model or "---") }}
+            {{ info_row("Số Serial", item.serial or "---", True) }}
+            {{ info_row("Nhà cung cấp", item.provider or "---") }}
+            {{ info_row("Nhà sản xuất", item.origin or "---") }}
+            {{ info_row("Năm sản xuất", (item.yearOfUse|string) if item.yearOfUse else "---") }}
+          </div>
+
+          {% if item.technicalSpecs %}
+          <div class="mt-4 pt-4 border-t">
+            <h4 class="font-bold text-sm text-gray-700 mb-2">Chi tiết kỹ thuật</h4>
+            <div class="bg-gray-50 p-3 rounded-lg text-sm font-mono text-gray-700 whitespace-pre-line border border-gray-200">
+              {{ item.technicalSpecs }}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="space-y-6">
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4">Thông tin quản lý</h3>
+            <div class="space-y-3">
+              {# nếu receiveDate là ISO string thì JS dưới sẽ format #}
+              <div data-dt="{{ item.receiveDate or '' }}">
+                {{ info_row("Ngày nhập kho", item.receiveDate or "---") }}
+              </div>
+              {{ info_row("Đơn vị sử dụng", item.usingDepartment or "---") }}
+              {{ info_row("Người quản lý", manager.name if manager else (item.managerId or "---")) }}
+              {{ info_row("Điện thoại liên hệ", manager.phone if manager and manager.phone else "N/A") }}
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4">Ghi chú</h3>
+            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-sm text-gray-700 leading-relaxed">
+              {{ item.notes or "Không có ghi chú đặc biệt cho thiết bị này." }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-HISTORY" class="tabPanel hidden bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in-up">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-50 border-b border-gray-100 text-gray-500 font-semibold">
+            <tr>
+              <th class="p-4">Thời gian</th>
+              <th class="p-4">Người sử dụng</th>
+              <th class="p-4">Mục đích</th>
+              <th class="p-4">Trạng thái sau dùng</th>
+              <th class="p-4">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% if not logs or logs|length == 0 %}
+              <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Chưa có lịch sử sử dụng</td></tr>
+            {% else %}
+              {% for l in logs %}
+              <tr class="hover:bg-gray-50/50 transition-colors">
+                <td class="p-4">
+                  <div class="font-medium text-gray-900 js-datetime" data-iso="{{ l.startTime or '' }}">{{ l.startTime or '---' }}</div>
+                  <div class="text-xs text-gray-400 js-time" data-iso="{{ l.startTime or '' }}"></div>
+                </td>
+                <td class="p-4">
+                  <div class="font-medium text-gray-800">{{ l.userName or l.guestName or 'Khách' }}</div>
+                </td>
+                <td class="p-4 text-gray-600">{{ l.purpose or '' }}</td>
+                <td class="p-4">
+                  {% if l.postStatus == 'ERROR' %}
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-100">Có lỗi</span>
+                  {% else %}
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-600 border border-green-100">Bình thường</span>
+                  {% endif %}
+                </td>
+                <td class="p-4 text-gray-500 max-w-xs truncate">{{ l.notes or '' }}</td>
+              </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MAINTENANCE -->
+    {% if is_manager %}
+    <section id="tab-MAINTENANCE" class="tabPanel hidden space-y-4 animate-fade-in-up">
+      <div class="flex justify-between items-center bg-blue-50 p-4 rounded-xl border border-blue-100">
+        <h3 class="font-bold text-blue-900 text-sm">Quản lý bảo trì</h3>
+        <button type="button" id="btnPrintRepair"
+                class="flex items-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-50 text-xs font-bold shadow-sm transition-colors">
+          In Phiếu Đề Nghị Sửa Chữa
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4">
+        {% if not tickets or tickets|length == 0 %}
+          <div class="text-center text-gray-400 py-10 bg-white rounded-2xl border border-dashed">Chưa có lịch sử sửa chữa.</div>
+        {% else %}
+          {% for t in tickets %}
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:border-primary/30 transition-all">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <div class="font-bold text-gray-800 text-sm">Phiếu #{{ t.id }}</div>
+                <div class="text-xs text-gray-400 js-date" data-iso="{{ t.reportDate or '' }}">{{ t.reportDate or '' }}</div>
+              </div>
+              <span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">
+                {{ (TICKET_STATUS_TRANS[t.status] if TICKET_STATUS_TRANS is defined else t.status) }}
+              </span>
+            </div>
+
+            <p class="text-gray-700 font-medium text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
+              "{{ t.issueDescription or '' }}"
+            </p>
+
+            <div class="flex justify-between items-center mt-3 text-xs text-gray-500">
+              <span>Người báo: {{ t.reporterId }}</span>
+              {% if t.cost %}<span class="font-bold text-gray-900">Chi phí: {{ t.cost }} đ</span>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- MOVEMENT -->
+    <section id="tab-MOVEMENT" class="tabPanel hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-8 animate-fade-in-up">
+      <div class="relative border-l-2 border-gray-200 ml-3 space-y-8 py-2">
+        {% if not movements or movements|length == 0 %}
+          <p class="pl-6 text-gray-400 italic">Thiết bị chưa từng di chuyển vị trí.</p>
+        {% else %}
+          {% for m in movements %}
+          <div class="relative pl-8">
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm"></div>
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+              <div>
+                <div class="font-bold text-gray-900 text-lg">Chuyển đến: {{ m.newLocation }}</div>
+                <div class="text-sm text-gray-500">Từ: <span class="font-medium text-gray-700">{{ m.oldLocation }}</span></div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-gray-600 js-datetime" data-iso="{{ m.date or '' }}">{{ m.date or '' }}</div>
+              </div>
+            </div>
+            <div class="mt-2 text-xs bg-gray-50 inline-block px-2 py-1 rounded text-gray-500 border">
+              Thực hiện bởi: <span class="font-bold text-gray-700">{{ m.movedByName or m.movedBy }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- SOP -->
+    <section id="tab-SOP" class="tabPanel hidden animate-fade-in-up">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="font-bold text-gray-800">Tài liệu hướng dẫn</h3>
+        {% if is_manager %}
+        <button type="button" id="btnOpenAddSop"
+                class="flex items-center gap-2 text-xs bg-gray-900 text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition shadow-sm font-bold">
+          Thêm tài liệu
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% if item.sops and item.sops|length > 0 %}
+          {% for sop in item.sops %}
+          <button type="button"
+                  class="sopCard bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-primary/50 transition-all text-left flex gap-4 items-start"
+                  data-sop='{{ sop|tojson }}'>
+            <div class="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-gray-50 text-gray-700 font-bold text-xs">
+              {{ sop.type }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="font-bold text-gray-800 text-sm truncate">{{ sop.title }}</h4>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                  {{ (SOP_TYPE_TRANS[sop.type] if SOP_TYPE_TRANS is defined else sop.type) }}
+                </span>
+                {% if sop.required %}
+                <span class="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Bắt buộc</span>
+                {% endif %}
+              </div>
+            </div>
+          </button>
+          {% endfor %}
+        {% else %}
+          <div class="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
+            <p class="text-gray-400">Chưa có tài liệu hướng dẫn nào.</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===========================
+     MODALS
+  ============================ -->
+
+  <!-- BOOKING MODAL -->
+  <div id="bookingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col no-print shadow-2xl">
+      <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+        <h3 class="font-bold text-lg text-gray-800">Đăng ký sử dụng</h3>
+        <button type="button" class="modalClose p-1 hover:bg-gray-200 rounded-full">✕</button>
+      </div>
+
+      {# ✅ FIX: không dùng url_for(name) để tránh NoMatchFound #}
+      <form id="bookingForm" class="p-6 space-y-5" method="post" action="/bookings">
+        <input type="hidden" name="equipmentId" value="{{ item.id }}"/>
+
+        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+          <h4 class="font-bold text-blue-800 text-sm mb-3">Thông tin người đăng ký</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <input name="guestName" class="border rounded-lg p-2.5 text-sm" placeholder="Họ tên" value="{{ currentUser.name if currentUser else '' }}"/>
+            <input name="userCode" class="border rounded-lg p-2.5 text-sm" placeholder="MSCB/MSSV" value="{{ currentUser.id if currentUser else '' }}"/>
+            <input name="phone" class="border rounded-lg p-2.5 text-sm" placeholder="SĐT" value="{{ currentUser.phone if currentUser else '' }}"/>
+            <input name="email" class="border rounded-lg p-2.5 text-sm" placeholder="Email" value="{{ currentUser.email if currentUser else '' }}"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Bắt đầu</label>
+            <input id="startDateTime" name="startDateTime" type="datetime-local" class="w-full border rounded-lg p-2.5 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Kết thúc</label>
+            <input id="endDateTime" name="endDateTime" type="datetime-local" class="w-full border rounded-lg p-2.5 text-sm"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Mục đích sử dụng</label>
+          <textarea name="purpose" class="w-full border rounded-lg p-3 h-24 text-sm" placeholder="VD: Làm thí nghiệm..."></textarea>
+        </div>
+
+        <div class="bg-orange-50 p-4 rounded-xl border border-orange-200 flex items-start gap-3">
+          <input id="sopConfirmed" name="sopConfirmed" type="checkbox" class="w-5 h-5 accent-orange-600 mt-0.5 cursor-pointer"/>
+          <div class="text-sm text-orange-800">
+            <span class="font-bold block mb-1">Xác nhận an toàn (SOP) *</span>
+            Tôi xác nhận đã đọc và hiểu rõ quy trình vận hành an toàn cho thiết bị này.
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-primary text-white py-3 rounded-xl font-bold shadow-lg hover:bg-primary/90">
+            Gửi Đăng Ký
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div id="reportModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 no-print shadow-2xl border-t-4 border-red-500">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-xl text-gray-800">Báo hỏng / Sự cố</h3>
+        <button type="button" class="modalClose p-1 hover:bg-gray-100 rounded-full">✕</button>
+      </div>
+
+      {# ✅ FIX: không dùng url_for(name) để tránh NoMatchFound #}
+      <form id="reportForm" method="post" action="/tickets" enctype="multipart/form-data">
+        <input type="hidden" name="equipmentId" value="{{ item.id }}"/>
+
+        <div class="bg-red-50 p-3 rounded-lg text-sm text-red-700 mb-3">
+          Vui lòng mô tả chi tiết vấn đề để bộ phận kỹ thuật có thể xử lý nhanh nhất.
+        </div>
+
+        <label class="block text-sm font-bold text-gray-700 mb-1">Mô tả sự cố *</label>
+        <textarea name="issueDescription" class="w-full border rounded-lg p-3 h-32 mb-3" placeholder="Máy bị kêu to, không lên nguồn..."></textarea>
+
+        <label class="block text-sm font-bold text-gray-700 mb-2">Hình ảnh minh chứng</label>
+        <input name="attachments" type="file" multiple accept="image/*" class="w-full border rounded-lg p-2 mb-4"/>
+
+        <button type="submit" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-700">
+          Gửi Báo Cáo
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SOP VIEW MODAL -->
+  <div id="sopViewModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+        <div>
+          <h3 id="sopTitle" class="font-bold text-lg text-gray-800">SOP</h3>
+          <span id="sopType" class="text-xs text-gray-500 font-bold uppercase"></span>
+        </div>
+        <button type="button" class="modalClose p-2 hover:bg-gray-200 rounded-full">✕</button>
+      </div>
+
+      <div id="sopBody" class="flex-1 bg-gray-100 overflow-y-auto p-4 flex justify-center items-center"></div>
+
+      <div class="p-4 border-t bg-white flex justify-between items-center">
+        <div id="sopRequired" class="text-xs text-gray-500"></div>
+        <button type="button" id="btnConfirmSop"
+                class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold shadow-lg hover:bg-primary/90">
+          Xác nhận đã đọc &amp; Hiểu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRINT-ONLY AREA (INFO CARD) -->
+  <div id="printArea" class="print-only bg-white text-black font-serif leading-relaxed text-sm">
+    <div id="printInfoCard" class="p-8 border-4 border-double border-gray-800 rounded-xl max-w-[100mm] mx-auto mt-10">
+      <div class="text-center border-b-2 border-gray-800 pb-4 mb-4">
+        <img src="{{ (home_config.logo if home_config and home_config.logo else (BRAND_LOGO_URL if BRAND_LOGO_URL is defined else '')) }}"
+             class="w-16 h-16 object-contain mx-auto mb-2" alt="Logo" />
+        <h1 class="text-lg font-bold uppercase">{{ home_config.appName if home_config else "Quản lý thiết bị" }}</h1>
+        <p class="text-xs">Quản lý Trang thiết bị</p>
+      </div>
+
+      <div class="flex justify-center mb-4">
+        <div id="qrPrint" class="w-[180px] h-[180px]"></div>
+      </div>
+
+      <div class="text-center mb-6">
+        <div class="text-2xl font-bold mb-1">{{ item.code }}</div>
+        <div class="text-sm font-bold text-gray-600">{{ item.name }}</div>
+      </div>
+
+      <div class="text-xs space-y-2 border-t pt-4">
+        <div class="flex justify-between"><span>Model:</span> <strong>{{ item.model or '---' }}</strong></div>
+        <div class="flex justify-between"><span>Vị trí:</span> <strong>{{ item.location or '---' }}</strong></div>
+        <div class="flex justify-between"><span>Quản lý:</span> <strong>{{ manager.name if manager else (item.managerId or '---') }}</strong></div>
+        <div class="flex justify-between"><span>SĐT:</span> <strong>{{ manager.phone if manager and manager.phone else '...' }}</strong></div>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<!-- ===========================
+  JS: Tabs, Modals, Gallery, QR, SOP View, datetime defaults
+=========================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+  const rawBaseUrl = "{{ base_url or '' }}";
+  const baseUrl = (rawBaseUrl || '').replace(/\/+$/, '');
+  const equipmentId = "{{ item.id }}";
+  const qrValue = baseUrl ? `${baseUrl}/#/equipment/${equipmentId}` : `/#/equipment/${equipmentId}`;
+
+  // QR code (hero)
+  try { new QRCode(document.getElementById("qrCode"), { text: qrValue, width: 110, height: 110 }); } catch(e){}
+
+  // QR code (print)
+  try { new QRCode(document.getElementById("qrPrint"), { text: qrValue, width: 180, height: 180 }); } catch(e){}
+
+  // Gallery thumbs
+  document.querySelectorAll(".thumbBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const img = btn.getAttribute("data-img");
+      if (img) document.getElementById("mainImage").src = img;
+
+      document.querySelectorAll(".thumbBtn").forEach(b => {
+        b.classList.remove("border-primary","ring-2","ring-primary/20","opacity-100");
+        b.classList.add("border-transparent","opacity-60");
+      });
+      btn.classList.remove("border-transparent","opacity-60");
+      btn.classList.add("border-primary","ring-2","ring-primary/20","opacity-100");
+    });
+  });
+
+  // Tabs
+  const tabBtns = document.querySelectorAll(".tabBtn");
+  const panels = document.querySelectorAll(".tabPanel");
+  function activateTab(id){
+    panels.forEach(p => p.classList.add("hidden"));
+    const active = document.getElementById("tab-" + id);
+    if (active) active.classList.remove("hidden");
+
+    tabBtns.forEach(b => {
+      b.classList.remove("bg-white","text-primary","shadow-sm","ring-1","ring-black/5");
+      b.classList.add("text-gray-500");
+    });
+    const btn = document.querySelector(`.tabBtn[data-tab="${id}"]`);
+    if (btn){
+      btn.classList.add("bg-white","text-primary","shadow-sm","ring-1","ring-black/5");
+      btn.classList.remove("text-gray-500");
+    }
+  }
+  tabBtns.forEach(b => b.addEventListener("click", () => activateTab(b.dataset.tab)));
+  activateTab("INFO");
+
+  // Modal helpers
+  function openModal(id){ const el=document.getElementById(id); if(el){ el.classList.remove("hidden"); el.classList.add("flex"); } }
+  function closeModal(id){ const el=document.getElementById(id); if(el){ el.classList.add("hidden"); el.classList.remove("flex"); } }
+  function closeAll(){ ["bookingModal","reportModal","sopViewModal"].forEach(closeModal); }
+
+  document.querySelectorAll(".modalClose").forEach(btn => btn.addEventListener("click", closeAll));
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape") closeAll(); });
+
+  // Booking default datetime (now -> +2h)
+  function toLocalInputValue(date){
+    const pad = n => String(n).padStart(2,'0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth()+1);
+    const dd = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const mi = pad(date.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+  function setDefaultBookingTimes(){
+    const startEl = document.getElementById("startDateTime");
+    const endEl = document.getElementById("endDateTime");
+    if(!startEl || !endEl) return;
+    const now = new Date();
+    const plus2 = new Date(now.getTime() + 2*60*60*1000);
+    if(!startEl.value) startEl.value = toLocalInputValue(now);
+    if(!endEl.value) endEl.value = toLocalInputValue(plus2);
+  }
+
+  // Buttons
+  const isLoggedIn = {{ 'true' if is_logged_in else 'false' }};
+  const canBook = {{ 'true' if can_book else 'false' }};
+  const canReport = {{ 'true' if can_report else 'false' }};
+
+  document.getElementById("btnBook")?.addEventListener("click", () => {
+    if(!isLoggedIn) return alert("Vui lòng đăng nhập để sử dụng tính năng này.");
+    if(!canBook) return alert("Thiết bị đang Hư hỏng/Bảo trì/Thanh lý. Không thể đăng ký.");
+    setDefaultBookingTimes();
+    openModal("bookingModal");
+  });
+
+  document.getElementById("btnReport")?.addEventListener("click", () => {
+    if(!isLoggedIn) return alert("Vui lòng đăng nhập để sử dụng tính năng này.");
+    if(!canReport) return alert("Không thể báo hỏng khi thiết bị đã hư hoặc đang bảo trì/ thanh lý.");
+    openModal("reportModal");
+  });
+
+  // Booking SOP required check (client-side)
+  document.getElementById("bookingForm")?.addEventListener("submit", (e) => {
+    const chk = document.getElementById("sopConfirmed");
+    if(chk && !chk.checked){
+      e.preventDefault();
+      alert("BẮT BUỘC: Bạn phải xác nhận đã đọc và hiểu rõ SOP trước khi đăng ký.");
+      return;
+    }
+  });
+
+  // Print INFO card
+  document.getElementById("btnPrintInfo")?.addEventListener("click", () => window.print());
+
+  // SOP view modal
+  function renderSop(sop){
+    const titleEl = document.getElementById("sopTitle");
+    const typeEl = document.getElementById("sopType");
+    const bodyEl = document.getElementById("sopBody");
+    const reqEl  = document.getElementById("sopRequired");
+
+    titleEl.textContent = sop.title || "Tài liệu";
+    typeEl.textContent = (sop.type || "").toUpperCase();
+
+    reqEl.innerHTML = sop.required
+      ? '<span class="text-red-600 font-bold">* Tài liệu bắt buộc đọc</span>'
+      : "Tài liệu tham khảo";
+
+    bodyEl.innerHTML = "";
+
+    const type = (sop.type || "TEXT").toUpperCase();
+
+    if(type === "PDF"){
+      const embed = document.createElement("embed");
+      embed.src = sop.url;
+      embed.type = "application/pdf";
+      embed.className = "w-full h-full rounded shadow-sm bg-white";
+      bodyEl.appendChild(embed);
+    } else if(type === "IMAGE"){
+      const img = document.createElement("img");
+      img.src = sop.url;
+      img.className = "max-w-full max-h-full object-contain shadow-lg";
+      bodyEl.appendChild(img);
+    } else if(type === "WORD"){
+      bodyEl.innerHTML = `
+        <div class="text-center p-8 bg-white rounded-xl shadow-sm border max-w-md">
+          <div class="font-bold text-lg text-gray-800 mb-2">Tài liệu Word</div>
+          <p class="text-gray-600 mb-6 text-sm">
+            Trình duyệt không hỗ trợ xem trực tiếp file Word.<br/>Vui lòng tải về để xem nội dung.
+          </p>
+          <a href="${sop.url}" download="${(sop.title||'sop')}" class="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700">
+            Tải về
+          </a>
+        </div>`;
+    } else {
+      const box = document.createElement("div");
+      box.className = "bg-white p-8 rounded-xl shadow-sm border w-full max-w-3xl min-h-[50vh] text-gray-800 leading-relaxed whitespace-pre-wrap";
+      box.textContent = sop.url || "";
+      bodyEl.appendChild(box);
+    }
+
+    openModal("sopViewModal");
+  }
+
+  document.querySelectorAll(".sopCard").forEach(btn => {
+    btn.addEventListener("click", () => {
+      try {
+        const sop = JSON.parse(btn.getAttribute("data-sop"));
+        renderSop(sop);
+      } catch(e){
+        console.error("Invalid SOP JSON", e);
+      }
+    });
+  });
+
+  document.getElementById("btnConfirmSop")?.addEventListener("click", () => {
+    alert("Đã xác nhận đã đọc và hiểu tài liệu.");
+    closeModal("sopViewModal");
+  });
+
+  // Optional: format ISO datetimes (nếu backend trả ISO)
+  function safeParseISO(s){
+    if(!s) return null;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  document.querySelectorAll(".js-datetime").forEach(el => {
+    const iso = el.getAttribute("data-iso");
+    const d = safeParseISO(iso);
+    if(d) el.textContent = d.toLocaleDateString() + " " + d.toLocaleTimeString().slice(0,5);
+  });
+  document.querySelectorAll(".js-date").forEach(el => {
+    const iso = el.getAttribute("data-iso");
+    const d = safeParseISO(iso);
+    if(d) el.textContent = d.toLocaleDateString();
+  });
+  document.querySelectorAll(".js-time").forEach(el => {
+    const iso = el.getAttribute("data-iso");
+    const d = safeParseISO(iso);
+    if(d) el.textContent = d.toLocaleTimeString().slice(0,5);
+  });
+
+})();
+</script>
+
 {% endblock %}

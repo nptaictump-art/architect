@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{ page_title or "Quản trị hệ thống" }}</title>
+
+  <!-- Tailwind CDN (nhanh để chạy demo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* nhỏ gọn cho modal */
+    .modal-backdrop { background: rgba(0,0,0,.55); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .tab-active { border-bottom: 2px solid rgb(59 130 246); color: rgb(59 130 246); font-weight: 700; }
+    .tab-normal { color: rgb(107 114 128); }
+  </style>
+</head>
+
+<body class="bg-gray-50">
+  <!-- HEADER -->
+  <header class="bg-white border-b">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        {% if brand_logo %}
+          <img src="{{ brand_logo }}" alt="logo" class="h-9 w-9 rounded" />
+        {% endif %}
+        <div>
+          <div class="text-lg font-bold text-gray-800">Quản trị hệ thống</div>
+          <div class="text-xs text-gray-500">Chỉ dành cho ADMIN</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        {% if current_user %}
+          <div class="text-sm text-gray-700">
+            <span class="font-bold">{{ current_user.name }}</span>
+            <span class="text-gray-400">({{ current_user.id }})</span>
+          </div>
+          <a href="/logout" class="text-sm font-bold px-3 py-2 rounded-lg border hover:bg-gray-100">Đăng xuất</a>
+        {% else %}
+          <a href="/login" class="text-sm font-bold px-3 py-2 rounded-lg border hover:bg-gray-100">Đăng nhập</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    {% if not current_user or current_user.role != "ADMIN" %}
+      <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl font-bold">
+        Bạn không có quyền truy cập trang này.
+      </div>
+    {% else %}
+
+    <!-- Tabs -->
+    <div class="bg-white border rounded-xl overflow-hidden">
+      <div class="px-4 pt-4 border-b flex gap-6 overflow-x-auto">
+        <button data-tab="USERS" class="pb-3 tab-btn tab-active whitespace-nowrap">👥 Quản lý người dùng</button>
+        <button data-tab="CATEGORIES" class="pb-3 tab-btn tab-normal whitespace-nowrap">📋 Danh mục</button>
+        <button data-tab="SETTINGS" class="pb-3 tab-btn tab-normal whitespace-nowrap">⚙️ Cấu hình & Bảo mật</button>
+      </div>
+
+      <!-- CONTENT: USERS -->
+      <section id="tab-USERS" class="p-4">
+        <div class="bg-white rounded-xl border overflow-hidden">
+          <div class="p-4 bg-gray-50 border-b space-y-3">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <h3 class="font-bold text-gray-700">Danh sách nhân sự & Sinh viên</h3>
+              <div class="flex gap-2">
+                <button id="btnExportUsers" class="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-3 py-2 rounded-lg">
+                  ⬇️ Xuất Excel
+                </button>
+                <button id="btnAddUser" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-3 py-2 rounded-lg">
+                  ➕ Thêm người dùng
+                </button>
+              </div>
+            </div>
+
+            <div class="relative">
+              <input id="userSearch" type="text"
+                class="w-full border rounded-lg px-4 py-2 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                placeholder="Tìm theo Tên, ID, Email, Phòng ban..." />
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔎</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="bg-gray-100 text-gray-600 text-sm border-b">
+                <tr>
+                  <th class="p-3">MSCB / MSSV</th>
+                  <th class="p-3">Họ và tên</th>
+                  <th class="p-3">Email / SĐT</th>
+                  <th class="p-3">Vai trò</th>
+                  <th class="p-3">Phòng ban / Lớp</th>
+                  <th class="p-3 text-center">Trạng thái</th>
+                  <th class="p-3 text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody" class="divide-y text-sm">
+                <!-- Render by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTENT: CATEGORIES -->
+      <section id="tab-CATEGORIES" class="p-4 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-xl shadow-sm border">
+            <h3 class="font-bold text-gray-800 mb-4 border-b pb-2">📋 Quản lý Đơn vị sử dụng</h3>
+
+            <div class="mb-4">
+              <label class="block text-sm font-bold text-gray-700 mb-1">Thêm đơn vị mới</label>
+              <div class="flex gap-2">
+                <input id="deptInput" class="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                  placeholder="Nhập tên Khoa/Bộ môn/Phòng..." />
+                <button id="btnAddDept" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                  ➕ Thêm
+                </button>
+              </div>
+            </div>
+
+            <div class="border rounded-lg overflow-hidden">
+              <div class="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600 uppercase border-b">
+                Danh sách hiện có
+              </div>
+              <div id="deptList" class="max-h-96 overflow-y-auto bg-gray-50 divide-y">
+                <!-- JS -->
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 p-6 rounded-xl border border-dashed flex flex-col items-center justify-center text-center">
+            <div class="text-4xl mb-2">⚙️</div>
+            <h4 class="font-bold text-gray-500">Các danh mục khác</h4>
+            <p class="text-sm text-gray-400">Bạn có thể mở rộng: Loại thiết bị, Nhà cung cấp, Nguồn vốn...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTENT: SETTINGS -->
+      <section id="tab-SETTINGS" class="p-4 hidden space-y-6">
+        <!-- Drive sync block -->
+        <div class="bg-white p-6 rounded-xl border">
+          <h3 class="font-bold text-gray-800 mb-4 border-b pb-2">🗄️ Đồng bộ dữ liệu (Google Drive)</h3>
+
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+            <div class="text-sm font-bold text-green-800">✅ Phương thức: Google Apps Script (Ghi đè file cũ)</div>
+            <div class="text-sm text-gray-600">
+              Dữ liệu sẽ lưu vào thư mục <b>SciEquip_Data</b> trên Drive:
+              <ul class="list-disc pl-5 mt-2 text-sm">
+                <li><b>Database</b>: DB nguồn</li>
+                <li><b>HinhAnh</b>: ảnh thiết bị</li>
+                <li><b>KiemKe/[Năm]</b>: kiểm kê theo năm</li>
+              </ul>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Web App URL (Apps Script)</label>
+              <div class="flex gap-2">
+                <input id="scriptUrlInput" class="flex-1 border rounded p-2 text-sm mono"
+                       placeholder="https://script.google.com/macros/s/.../exec" />
+                <button id="btnSaveScriptUrl" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm">
+                  Lưu URL
+                </button>
+              </div>
+              <div id="scriptUrlHint" class="text-xs text-gray-500 mt-1 italic"></div>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="btnSyncFromDrive" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                ☁️ Tải từ Drive về Web
+              </button>
+              <button id="btnSyncToDrive" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                🔄 Cập nhật Database
+              </button>
+            </div>
+
+            <div id="driveMsg" class="text-xs"></div>
+          </div>
+
+          <!-- GAS CODE -->
+          <div class="mt-5 border rounded-lg overflow-hidden">
+            <div class="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600 uppercase border-b flex justify-between items-center">
+              <span>Hướng dẫn cài đặt Script</span>
+              <a href="https://script.google.com/home" target="_blank" rel="noreferrer"
+                 class="text-blue-600 hover:underline text-xs font-bold">Mở Google Scripts ↗</a>
+            </div>
+
+            <div class="p-4 bg-gray-50 space-y-3">
+              <ol class="list-decimal pl-5 text-sm text-gray-700 space-y-1">
+                <li>Mở Google Apps Script và tạo/mở dự án.</li>
+                <li>Xóa mã cũ, dán toàn bộ mã dưới đây.</li>
+                <li>Deploy → New deployment → Web app, access: Anyone.</li>
+                <li>Dán URL vào ô phía trên và lưu.</li>
+              </ol>
+
+              <div class="relative">
+                <pre id="gasCode" class="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto mono border border-gray-800"></pre>
+                <button id="btnCopyGas" class="absolute top-2 right-2 bg-white/20 hover:bg-white/40 text-white px-2 py-1 rounded text-xs font-bold">
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile + password + base url -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-xl border">
+            <h3 class="font-bold text-gray-800 mb-4">👤 Thông tin cá nhân</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Tên hiển thị</label>
+                <input id="myName" class="w-full border rounded p-2" value="{{ current_user.name }}" />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Email liên hệ</label>
+                <input id="myEmail" class="w-full border rounded p-2" value="{{ current_user.email }}" />
+              </div>
+              <div class="text-sm text-gray-600 bg-gray-50 border rounded p-2 flex justify-between">
+                <span>ID:</span><span class="mono font-bold">{{ current_user.id }}</span>
+              </div>
+
+              <button id="btnSaveProfile" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold">
+                Lưu thông tin
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-xl border">
+            <h3 class="font-bold text-gray-800 mb-4">🔑 Đổi mật khẩu</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Mật khẩu mới</label>
+                <input id="newPass" type="password" class="w-full border rounded p-2" placeholder="Nhập mật khẩu mới..." />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">Nhập lại</label>
+                <input id="confirmPass" type="password" class="w-full border rounded p-2" placeholder="Xác nhận..." />
+              </div>
+              <button id="btnChangePass" class="w-full bg-gray-800 hover:bg-gray-700 text-white py-2 rounded font-bold">
+                Lưu mật khẩu mới
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-xl border md:col-span-2">
+            <h3 class="font-bold text-gray-800 mb-4">⚙️ Base URL (cho QR)</h3>
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div class="text-sm text-blue-800 font-bold mb-1">Đường dẫn website công khai</div>
+              <div class="text-xs text-blue-700 mb-3">Dùng để tạo QR chính xác khi quét bằng Camera/Zalo.</div>
+              <div class="flex gap-2">
+                <input id="baseUrlInput" class="flex-1 border rounded p-2 text-sm"
+                       placeholder="https://your-domain.com" />
+                <button id="btnSaveBaseUrl" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold text-sm">
+                  💾 Lưu
+                </button>
+              </div>
+              <div id="baseUrlHint" class="text-xs text-gray-600 mt-2 italic"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ==========================
+         MODALS
+    =========================== -->
+
+    <!-- User Edit Modal -->
+    <div id="userModal" class="fixed inset-0 hidden items-center justify-center modal-backdrop p-4 z-50">
+      <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div class="p-4 border-b flex justify-between items-center">
+          <div id="userModalTitle" class="font-bold text-gray-800">Thêm / Sửa người dùng</div>
+          <button id="userModalClose" class="text-gray-500 hover:text-gray-800">✕</button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">ID *</label>
+              <input id="u_id" class="w-full border rounded p-2 bg-gray-50 mono" />
+              <div class="text-xs text-gray-500 mt-1 italic">ID sẽ không cho sửa khi đã tồn tại.</div>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Họ và tên *</label>
+              <input id="u_name" class="w-full border rounded p-2" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Email *</label>
+              <input id="u_email" type="email" class="w-full border rounded p-2" />
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Số điện thoại</label>
+              <input id="u_phone" class="w-full border rounded p-2" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Phòng ban / Lớp *</label>
+            <input id="u_department" class="w-full border rounded p-2" />
+          </div>
+
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <label class="block text-sm font-bold text-gray-800 mb-1">Mật khẩu</label>
+            <input id="u_password" type="password" class="w-full border rounded p-2 bg-white"
+                   placeholder="Nhập nếu tạo mới, hoặc nhập nếu muốn đổi mật khẩu" />
+          </div>
+
+          <div class="bg-gray-50 border rounded-lg p-3">
+            <label class="block text-sm font-bold text-gray-800 mb-1">Vai trò</label>
+            <select id="u_role" class="w-full border rounded p-2 bg-white">
+              <option value="STUDENT">Cán bộ / Sinh viên (Chỉ xem)</option>
+              <option value="STAFF">Cán bộ quản lý (Không vào admin)</option>
+              <option value="ADMIN">Quản trị viên (Toàn quyền)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="p-4 border-t flex justify-end gap-3 bg-white">
+          <button id="btnUserCancel" class="px-4 py-2 rounded border hover:bg-gray-100">Hủy</button>
+          <button id="btnUserSave" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold">💾 Lưu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lock/Unlock Modal -->
+    <div id="actionModal" class="fixed inset-0 hidden items-center justify-center modal-backdrop p-4 z-50">
+      <div class="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border-t-4" id="actionModalBorder">
+        <div class="p-4 border-b flex justify-between items-start">
+          <div>
+            <div id="actionTitle" class="font-bold text-gray-800">Khóa/Mở khóa</div>
+            <div id="actionDesc" class="text-sm text-gray-600 mt-1"></div>
+          </div>
+          <button id="actionClose" class="text-gray-500 hover:text-gray-800">✕</button>
+        </div>
+
+        <div class="p-4 space-y-3">
+          <div id="actionWarn" class="text-sm rounded-lg p-3 border"></div>
+          <label class="block text-sm font-bold text-gray-700">Lý do *</label>
+          <textarea id="actionReason" rows="3" class="w-full border rounded-lg p-3 text-sm"></textarea>
+        </div>
+
+        <div class="p-4 border-t flex justify-end gap-3 bg-white">
+          <button id="actionCancel" class="px-4 py-2 rounded border hover:bg-gray-100">Hủy</button>
+          <button id="actionConfirm" class="px-4 py-2 rounded text-white font-bold">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+  </main>
+
+  <!-- ==========================
+       JS: Render + Actions
+  =========================== -->
+  <script>
+    // ---------- Data from server ----------
+    const CURRENT_USER = {{ current_user_json | tojson }};
+    const USERS = {{ (users if users else []) | tojson }};
+    const GAS_CODE = {{ (GAS_CODE if GAS_CODE is defined else "") | tojson }};
+    const DEPARTMENTS = {{ (departments if departments is defined else []) | tojson }};
+    const DRIVE_STATE = {{ (driveState if driveState is defined else {}) | tojson }};
+    const BASE_URL = {{ (baseUrl if baseUrl is defined else "") | tojson }};
+
+    // ---------- Role translate (fallback) ----------
+    const ROLE_TRANS = {
+      "ADMIN": "Quản trị viên",
+      "STAFF": "Cán bộ quản lý",
+      "STUDENT": "Cán bộ / Sinh viên"
+    };
+
+    // ---------- Tabs ----------
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    function setTab(name) {
+      tabBtns.forEach(btn => {
+        btn.classList.remove("tab-active");
+        btn.classList.add("tab-normal");
+      });
+      document.querySelector(`[data-tab="${name}"]`).classList.add("tab-active");
+      document.querySelector(`[data-tab="${name}"]`).classList.remove("tab-normal");
+
+      ["USERS","CATEGORIES","SETTINGS"].forEach(t => {
+        const el = document.getElementById("tab-" + t);
+        if (!el) return;
+        el.classList.toggle("hidden", t !== name);
+      });
+    }
+    tabBtns.forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+
+    // ---------- DOM helpers ----------
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => (s ?? "").toString().replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+
+    // ---------- USERS render ----------
+    let usersState = [...USERS];
+    let searchTerm = "";
+
+    function badgeStatus(isLocked) {
+      if (isLocked) return `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Bị Khóa</span>`;
+      return `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Hoạt động</span>`;
+    }
+
+    function renderUsers() {
+      const tbody = $("usersTbody");
+      const term = searchTerm.toLowerCase().trim();
+
+      const filtered = usersState.filter(u => {
+        return (u.name || "").toLowerCase().includes(term)
+          || (u.id || "").toLowerCase().includes(term)
+          || (u.email || "").toLowerCase().includes(term)
+          || (u.department || "").toLowerCase().includes(term);
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 italic">Không tìm thấy người dùng phù hợp.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(u => {
+        const isMe = CURRENT_USER && u.id === CURRENT_USER.id;
+        const meTag = isMe ? `<span class="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Tôi</span>` : "";
+        const role = ROLE_TRANS[u.role] || u.role || "";
+        const phoneLine = u.phone ? `<div class="text-xs text-gray-500">${esc(u.phone)}</div>` : "";
+        const lockBtn = u.isLocked
+          ? `<button class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Mở khóa" data-action="UNLOCK" data-id="${esc(u.id)}">🔓</button>`
+          : `<button class="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Khóa" data-action="LOCK" data-id="${esc(u.id)}">🔒</button>`;
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 mono font-bold text-gray-700">${esc(u.id)}</td>
+            <td class="p-3 font-medium">${esc(u.name)}${meTag}</td>
+            <td class="p-3">
+              <div class="text-gray-700">${esc(u.email)}</div>
+              ${phoneLine}
+            </td>
+            <td class="p-3"><span class="bg-gray-100 px-2 py-1 rounded text-xs">${esc(role)}</span></td>
+            <td class="p-3 text-gray-500">${esc(u.department || "")}</td>
+            <td class="p-3 text-center">${badgeStatus(!!u.isLocked)}</td>
+            <td class="p-3 text-right">
+              <div class="flex justify-end gap-2">
+                ${lockBtn}
+                <button class="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa" data-action="EDIT" data-id="${esc(u.id)}">✏️</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      // attach handlers
+      tbody.querySelectorAll("button[data-action]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          const user = usersState.find(x => x.id === id);
+          if (!user) return;
+
+          if (action === "EDIT") openUserModal(user);
+          if (action === "LOCK") openActionModal("LOCK", user);
+          if (action === "UNLOCK") openActionModal("UNLOCK", user);
+        });
+      });
+    }
+
+    // ---------- User modal ----------
+    let editingUser = null;
+
+    function openUserModal(userOrNull) {
+      const isNew = !userOrNull;
+      editingUser = isNew ? {
+        id: "u" + Date.now(),
+        name: "",
+        email: "",
+        phone: "",
+        role: "STUDENT",
+        department: "",
+        violationCount: 0,
+        isLocked: false,
+        password: ""
+      } : { ...userOrNull, password: "" };
+
+      $("userModalTitle").textContent = isNew ? "Thêm người dùng mới" : "Chỉnh sửa người dùng";
+      $("u_id").value = editingUser.id || "";
+      $("u_id").disabled = !isNew; // không cho sửa ID khi edit
+      $("u_name").value = editingUser.name || "";
+      $("u_email").value = editingUser.email || "";
+      $("u_phone").value = editingUser.phone || "";
+      $("u_department").value = editingUser.department || "";
+      $("u_password").value = "";
+      $("u_role").value = editingUser.role || "STUDENT";
+
+      $("userModal").classList.remove("hidden");
+      $("userModal").classList.add("flex");
+    }
+
+    function closeUserModal() {
+      $("userModal").classList.add("hidden");
+      $("userModal").classList.remove("flex");
+      editingUser = null;
+    }
+
+    async function saveUser() {
+      const id = $("u_id").value.trim();
+      const name = $("u_name").value.trim();
+      const email = $("u_email").value.trim();
+      const phone = $("u_phone").value.trim();
+      const dept = $("u_department").value.trim();
+      const role = $("u_role").value;
+      const pass = $("u_password").value;
+
+      if (!id || !name) return alert("Vui lòng nhập ID và Họ tên.");
+      if (!email) return alert("Vui lòng nhập Email.");
+      if (!dept) return alert("Vui lòng nhập Phòng ban/Lớp.");
+
+      const exists = usersState.some(u => u.id === id);
+      if (!exists && !pass) return alert("Vui lòng nhập mật khẩu cho tài khoản mới.");
+
+      const payload = {
+        id, name, email, phone,
+        department: dept,
+        role,
+        isLocked: exists ? (usersState.find(u=>u.id===id)?.isLocked ?? false) : false,
+        violationCount: exists ? (usersState.find(u=>u.id===id)?.violationCount ?? 0) : 0,
+        password: pass || undefined
+      };
+
+      // API endpoint bạn cần tự thêm ở backend: /api/admin/users/upsert
+      // Nếu bạn chưa có, có thể tạm lưu local và cập nhật db ở server theo cách bạn đang làm.
+      try {
+        const res = await fetch("/api/admin/users/upsert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          alert("Lỗi lưu user: " + t);
+          return;
+        }
+
+        const data = await res.json();
+        // server trả về user đã lưu
+        const saved = data.data || payload;
+
+        // update local
+        const idx = usersState.findIndex(u => u.id === saved.id);
+        if (idx >= 0) usersState[idx] = { ...usersState[idx], ...saved };
+        else usersState.unshift(saved);
+
+        renderUsers();
+        closeUserModal();
+        alert("Đã lưu người dùng thành công!");
+      } catch (e) {
+        console.error(e);
+        alert("Không gọi được API /api/admin/users/upsert. Bạn cần thêm API này trong main.py.");
+      }
+    }
+
+    // ---------- Lock/Unlock modal ----------
+    let actionUser = null;
+    let actionType = null;
+
+    function openActionModal(type, user) {
+      if (type === "LOCK" && user.id === CURRENT_USER.id) {
+        alert("Bạn không thể tự khóa chính mình.");
+        return;
+      }
+
+      actionUser = user;
+      actionType = type;
+
+      const isLock = type === "LOCK";
+      $("actionModalBorder").className = "bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden border-t-4 " + (isLock ? "border-red-500" : "border-green-500");
+
+      $("actionTitle").textContent = isLock ? "Khóa tài khoản" : "Mở khóa tài khoản";
+      $("actionDesc").innerHTML = `Bạn đang ${isLock ? "khóa" : "mở khóa"} <b>${esc(user.name)}</b> (${esc(user.id)}).`;
+      $("actionReason").value = "";
+
+      $("actionWarn").className = "text-sm rounded-lg p-3 border " + (isLock ? "bg-red-50 border-red-200 text-red-800" : "bg-green-50 border-green-200 text-green-800");
+      $("actionWarn").textContent = isLock
+        ? "Người dùng sẽ không thể đăng nhập sau khi bị khóa."
+        : "Tài khoản sẽ được kích hoạt lại (thường reset vi phạm).";
+
+      $("actionConfirm").className = "px-4 py-2 rounded text-white font-bold " + (isLock ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700");
+      $("actionConfirm").textContent = isLock ? "Xác nhận Khóa" : "Xác nhận Mở";
+
+      $("actionModal").classList.remove("hidden");
+      $("actionModal").classList.add("flex");
+    }
+
+    function closeActionModal() {
+      $("actionModal").classList.add("hidden");
+      $("actionModal").classList.remove("flex");
+      actionUser = null;
+      actionType = null;
+    }
+
+    async function confirmAction() {
+      if (!actionUser || !actionType) return;
+      const reason = $("actionReason").value.trim();
+      if (!reason) return alert("Vui lòng nhập lý do.");
+
+      // API endpoint bạn cần tự thêm ở backend: /api/admin/users/action
+      try {
+        const res = await fetch("/api/admin/users/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: actionUser.id, action: actionType, reason })
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          alert("Lỗi thao tác: " + t);
+          return;
+        }
+
+        const data = await res.json();
+        const updated = data.data;
+
+        // update local
+        const idx = usersState.findIndex(u => u.id === actionUser.id);
+        if (idx >= 0 && updated) usersState[idx] = { ...usersState[idx], ...updated };
+        renderUsers();
+        closeActionModal();
+        alert("Thao tác thành công!");
+      } catch (e) {
+        console.error(e);
+        alert("Không gọi được API /api/admin/users/action. Bạn cần thêm API này trong main.py.");
+      }
+    }
+
+    // ---------- Departments ----------
+    let deptState = [...DEPARTMENTS];
+
+    function renderDepts() {
+      const box = $("deptList");
+      if (!deptState.length) {
+        box.innerHTML = `<div class="p-4 text-center text-gray-400 italic text-sm">Chưa có đơn vị nào.</div>`;
+        return;
+      }
+
+      box.innerHTML = deptState.map(d => `
+        <div class="px-4 py-3 flex justify-between items-center hover:bg-white transition">
+          <span class="font-medium text-gray-800 text-sm">${esc(d)}</span>
+          <button class="text-red-600 hover:bg-red-50 px-2 py-1 rounded" data-dept="${esc(d)}">🗑️</button>
+        </div>
+      `).join("");
+
+      box.querySelectorAll("button[data-dept]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const dept = btn.dataset.dept;
+          if (!confirm(`Bạn có chắc muốn xóa "${dept}"?`)) return;
+
+          // API: /api/admin/departments/remove
+          try {
+            const res = await fetch("/api/admin/departments/remove", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ department: dept })
+            });
+            if (!res.ok) return alert("Lỗi xóa đơn vị.");
+            deptState = deptState.filter(x => x !== dept);
+            renderDepts();
+          } catch (e) {
+            console.error(e);
+            alert("Chưa có API /api/admin/departments/remove trong main.py.");
+          }
+        });
+      });
+    }
+
+    async function addDept() {
+      const v = $("deptInput").value.trim();
+      if (!v) return alert("Vui lòng nhập tên đơn vị.");
+      if (deptState.includes(v)) return alert("Đơn vị đã tồn tại.");
+
+      // API: /api/admin/departments/add
+      try {
+        const res = await fetch("/api/admin/departments/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ department: v })
+        });
+        if (!res.ok) return alert("Lỗi thêm đơn vị.");
+        deptState.push(v);
+        $("deptInput").value = "";
+        renderDepts();
+      } catch (e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/departments/add trong main.py.");
+      }
+    }
+
+    // ---------- Export users (HTML Excel) ----------
+    function exportUsers() {
+      const headers = ["STT","ID","Họ tên","Email","SĐT","Vai trò","Phòng ban","Số vi phạm","Trạng thái"];
+
+      const rows = usersState.map((u, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td class="text">${esc(u.id)}</td>
+          <td>${esc(u.name)}</td>
+          <td>${esc(u.email)}</td>
+          <td class="text">${esc(u.phone || "")}</td>
+          <td>${esc(ROLE_TRANS[u.role] || u.role)}</td>
+          <td>${esc(u.department || "")}</td>
+          <td>${esc(u.violationCount || 0)}</td>
+          <td>${u.isLocked ? "Bị khóa" : "Hoạt động"}</td>
+        </tr>
+      `).join("");
+
+      const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #000; padding: 5px; vertical-align: top; }
+          th { background: #f2f2f2; font-weight: bold; }
+          .text { mso-number-format:"\\@"; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </body>
+      </html>
+      `;
+
+      const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `danh_sach_nhan_su_${new Date().toISOString().slice(0,10)}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ---------- Settings: Script code, base url ----------
+    function initSettings() {
+      $("gasCode").textContent = GAS_CODE || "(Chưa có GAS_CODE từ server)";
+      $("baseUrlInput").value = BASE_URL || "";
+      $("baseUrlHint").textContent = BASE_URL ? ("Hiện tại: " + BASE_URL) : "Chưa cấu hình.";
+
+      $("scriptUrlInput").value = (DRIVE_STATE && DRIVE_STATE.scriptUrl) ? DRIVE_STATE.scriptUrl : "";
+      $("scriptUrlHint").textContent = $("scriptUrlInput").value ? ("Đang dùng: " + $("scriptUrlInput").value) : "Chưa cấu hình Script URL.";
+    }
+
+    async function saveBaseUrl() {
+      const url = $("baseUrlInput").value.trim();
+      // API: /api/admin/settings/base-url
+      try {
+        const res = await fetch("/api/admin/settings/base-url", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ baseUrl: url })
+        });
+        if (!res.ok) return alert("Lỗi lưu Base URL.");
+        $("baseUrlHint").textContent = "Hiện tại: " + url;
+        alert("Đã lưu Base URL.");
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/settings/base-url trong main.py.");
+      }
+    }
+
+    async function saveScriptUrl() {
+      const url = $("scriptUrlInput").value.trim();
+      // API: /api/admin/settings/script-url
+      try {
+        const res = await fetch("/api/admin/settings/script-url", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ scriptUrl: url })
+        });
+        if (!res.ok) return alert("Lỗi lưu Script URL.");
+        $("scriptUrlHint").textContent = "Đang dùng: " + url;
+        alert("Đã lưu Script URL.");
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/settings/script-url trong main.py.");
+      }
+    }
+
+    async function syncFromDrive() {
+      // API: /api/admin/drive/sync-from
+      try {
+        $("driveMsg").className = "text-xs text-gray-600";
+        $("driveMsg").textContent = "Đang tải dữ liệu từ Drive...";
+        const res = await fetch("/api/admin/drive/sync-from", { method:"POST" });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) {
+          $("driveMsg").className = "text-xs text-red-600";
+          $("driveMsg").textContent = data.message || "Lỗi tải Drive.";
+          return;
+        }
+        $("driveMsg").className = "text-xs text-green-700";
+        $("driveMsg").textContent = "Tải thành công từ Drive!";
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/drive/sync-from trong main.py.");
+      }
+    }
+
+    async function syncToDrive() {
+      // API: /api/admin/drive/sync-to
+      try {
+        $("driveMsg").className = "text-xs text-gray-600";
+        $("driveMsg").textContent = "Đang cập nhật Database lên Drive...";
+        const res = await fetch("/api/admin/drive/sync-to", { method:"POST" });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) {
+          $("driveMsg").className = "text-xs text-red-600";
+          $("driveMsg").textContent = data.message || "Lỗi cập nhật Drive.";
+          return;
+        }
+        $("driveMsg").className = "text-xs text-green-700";
+        $("driveMsg").textContent = "Cập nhật Database thành công!";
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/drive/sync-to trong main.py.");
+      }
+    }
+
+    async function saveProfile() {
+      const name = $("myName").value.trim();
+      const email = $("myEmail").value.trim();
+      if (!name) return alert("Vui lòng nhập tên.");
+      if (!email) return alert("Vui lòng nhập email.");
+
+      // API: /api/admin/profile/update
+      try {
+        const res = await fetch("/api/admin/profile/update", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ name, email })
+        });
+        if (!res.ok) return alert("Lỗi cập nhật profile.");
+        alert("Đã cập nhật thông tin cá nhân.");
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/profile/update trong main.py.");
+      }
+    }
+
+    async function changePassword() {
+      const p1 = $("newPass").value;
+      const p2 = $("confirmPass").value;
+      if (!p1) return alert("Nhập mật khẩu mới.");
+      if (p1 !== p2) return alert("Mật khẩu nhập lại không khớp.");
+
+      // API: /api/admin/profile/change-password
+      try {
+        const res = await fetch("/api/admin/profile/change-password", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ password: p1 })
+        });
+        if (!res.ok) return alert("Lỗi đổi mật khẩu.");
+        $("newPass").value = "";
+        $("confirmPass").value = "";
+        alert("Đổi mật khẩu thành công.");
+      } catch(e) {
+        console.error(e);
+        alert("Chưa có API /api/admin/profile/change-password trong main.py.");
+      }
+    }
+
+    // ---------- Init ----------
+    // Buttons
+    $("userSearch").addEventListener("input", (e) => { searchTerm = e.target.value; renderUsers(); });
+    $("btnAddUser").addEventListener("click", () => openUserModal(null));
+    $("btnExportUsers").addEventListener("click", exportUsers);
+
+    $("userModalClose").addEventListener("click", closeUserModal);
+    $("btnUserCancel").addEventListener("click", closeUserModal);
+    $("btnUserSave").addEventListener("click", saveUser);
+
+    $("actionClose").addEventListener("click", closeActionModal);
+    $("actionCancel").addEventListener("click", closeActionModal);
+    $("actionConfirm").addEventListener("click", confirmAction);
+
+    $("btnAddDept").addEventListener("click", addDept);
+    $("deptInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addDept(); });
+
+    $("btnCopyGas").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(GAS_CODE || "");
+        alert("Đã sao chép mã script!");
+      } catch(e) {
+        alert("Không copy được. Bạn hãy copy thủ công.");
+      }
+    });
+
+    $("btnSaveBaseUrl").addEventListener("click", saveBaseUrl);
+    $("btnSaveScriptUrl").addEventListener("click", saveScriptUrl);
+    $("btnSyncFromDrive").addEventListener("click", syncFromDrive);
+    $("btnSyncToDrive").addEventListener("click", syncToDrive);
+    $("btnSaveProfile").addEventListener("click", saveProfile);
+    $("btnChangePass").addEventListener("click", changePassword);
+
+    // Render
+    initSettings();
+    renderUsers();
+    renderDepts();
+    setTab("USERS");
+  </script>
+</body>
+</html>

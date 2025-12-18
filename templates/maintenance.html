@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title or "Bảo trì & Sửa chữa" }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 animate-fade-in-up no-print" id="maintenance-app">
+  <h2 class="text-2xl font-bold text-gray-800">Quản lý Bảo trì & Sửa chữa</h2>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 overflow-x-auto pb-2 border-b" id="tabs">
+    <button data-tab="RECEIVE" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-primary text-white shadow-md transform -translate-y-1">
+      <i data-lucide="inbox" class="w-[18px] h-[18px]"></i> Tiếp nhận &amp; Lập phiếu
+    </button>
+    <button data-tab="REPAIR" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200">
+      <i data-lucide="clock" class="w-[18px] h-[18px]"></i> Theo dõi sửa chữa
+    </button>
+    <button data-tab="LIQUIDATION" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200">
+      <i data-lucide="alert-octagon" class="w-[18px] h-[18px]"></i> Thanh lý
+    </button>
+    <button data-tab="MOVEMENT" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200">
+      <i data-lucide="refresh-cw" class="w-[18px] h-[18px]"></i> Di chuyển
+    </button>
+    <button data-tab="HISTORY" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200">
+      <i data-lucide="history" class="w-[18px] h-[18px]"></i> Lịch sử
+    </button>
+    <button data-tab="ARCHIVE" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap bg-gray-100 text-gray-600 hover:bg-gray-200">
+      <i data-lucide="archive" class="w-[18px] h-[18px]"></i> Lưu trữ phiếu
+    </button>
+  </div>
+
+  <!-- Panel -->
+  <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[500px]">
+    <!-- RECEIVE -->
+    <section id="tab-RECEIVE" class="tab-panel space-y-6">
+      <div class="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
+        <div>
+          <h3 class="font-bold text-blue-900">Tiếp nhận &amp; Lập phiếu đề nghị</h3>
+          <p class="text-xs text-blue-700">Theo dõi các báo hỏng mới và tạo phiếu sửa chữa tập trung.</p>
+        </div>
+        <button id="btn-start-draft"
+          class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold shadow-lg hover:bg-primary/90 flex items-center gap-2 transform hover:-translate-y-0.5 transition-all">
+          <i data-lucide="pen-tool" class="w-[18px] h-[18px]"></i> Lập phiếu đề nghị
+        </button>
+      </div>
+
+      <div class="bg-white rounded-lg shadow border overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-100 text-gray-700 font-bold border-b">
+              <tr>
+                <th class="p-4 text-center w-16">STT</th>
+                <th class="p-4 w-32">Thời gian báo</th>
+                <th class="p-4">Thiết bị báo hỏng</th>
+                <th class="p-4">Lỗi báo hỏng</th>
+                <th class="p-4">Minh chứng</th>
+                <th class="p-4">Người báo</th>
+                <th class="p-4 text-center">Trạng thái</th>
+                <th class="p-4 text-right">Hành động</th>
+              </tr>
+            </thead>
+
+            <!-- Data sẽ render bằng JS -->
+            <tbody id="receive-list" class="divide-y">
+              <tr>
+                <td colspan="8" class="p-8 text-center text-gray-400 italic">
+                  Chưa có dữ liệu (cần API /maintenance/data để đổ tickets).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPAIR -->
+    <section id="tab-REPAIR" class="tab-panel hidden">
+      <div class="text-gray-500 italic">TODO: Render “Theo dõi sửa chữa” bằng JS (RepairListTab).</div>
+    </section>
+
+    <!-- LIQUIDATION -->
+    <section id="tab-LIQUIDATION" class="tab-panel hidden">
+      <div class="text-gray-500 italic">TODO: Render “Thanh lý” bằng JS (LiquidationTab).</div>
+    </section>
+
+    <!-- MOVEMENT -->
+    <section id="tab-MOVEMENT" class="tab-panel hidden">
+      <div class="text-gray-500 italic">TODO: Render “Di chuyển” bằng JS (MovementTab).</div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-HISTORY" class="tab-panel hidden">
+      <div class="text-gray-500 italic">TODO: Render “Lịch sử” bằng JS (MaintenanceHistoryTab).</div>
+    </section>
+
+    <!-- ARCHIVE -->
+    <section id="tab-ARCHIVE" class="tab-panel hidden">
+      <div class="text-gray-500 italic">TODO: Render “Lưu trữ phiếu” bằng JS (ProposalArchiveTab).</div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tabs UI (giữ cảm giác giống React)
+  (function () {
+    const tabButtons = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
+
+    function setActive(tabId) {
+      tabButtons.forEach(btn => {
+        const isActive = btn.dataset.tab === tabId;
+        btn.className = "tab-btn flex items-center gap-2 px-4 py-2 rounded-t-lg font-bold text-sm transition-all whitespace-nowrap " +
+          (isActive
+            ? "bg-primary text-white shadow-md transform -translate-y-1"
+            : "bg-gray-100 text-gray-600 hover:bg-gray-200");
+      });
+      panels.forEach(p => p.classList.toggle("hidden", p.id !== `tab-${tabId}`));
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    tabButtons.forEach(btn => btn.addEventListener("click", () => setActive(btn.dataset.tab)));
+    setActive("RECEIVE");
+  })();
+</script>
+{% endblock %}
