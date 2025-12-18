@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gray-800">Quản lý Đơn đăng ký</h2>
+        <button class="bg-primary text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-primary/90 flex items-center gap-2">
+            <i data-lucide="plus"></i> Tạo đơn mới
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow border overflow-hidden">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-gray-100 text-gray-700 font-bold border-b">
+                <tr>
+                    <th class="p-3">Thiết bị</th>
+                    <th class="p-3">Người đăng ký</th>
+                    <th class="p-3">Thời gian</th>
+                    <th class="p-3">Trạng thái</th>
+                    <th class="p-3 text-right">Hành động</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for b in bookings %}
+                <tr class="hover:bg-gray-50">
+                    <td class="p-3">
+                        <div class="font-bold text-gray-800">{{ b.equipmentName }}</div>
+                        <div class="text-xs text-gray-500 font-mono">{{ b.equipmentCode }}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="font-medium">{{ b.guestName }}</div>
+                        <div class="text-xs text-gray-500">{{ b.userCode }}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="text-xs">{{ b.startTime }}</div>
+                        <div class="text-xs text-gray-400">đến {{ b.endTime }}</div>
+                    </td>
+                    <td class="p-3">
+                        <span class="px-2 py-1 rounded text-xs font-bold border bg-gray-100">{{ b.status }}</span>
+                    </td>
+                    <td class="p-3 text-right">
+                        {% if b.status == 'PENDING' %}
+                        <button class="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold border border-red-200">Hủy</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
