@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SciEquip Management{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#0f766e',
+              secondary: '#0e7490',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        .no-print { @media print { display: none; } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+
+    <!-- HEADER -->
+    <header class="bg-primary text-white shadow-md sticky top-0 z-50 h-16 no-print">
+        <div class="container mx-auto px-4 h-full flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 hover:opacity-90 transition">
+                <img src="{{ brand_logo }}" alt="Logo" class="w-8 h-8 bg-white rounded p-0.5">
+                <span class="text-lg font-bold truncate hidden sm:block">{{ home_config.appName }}</span>
+            </a>
+
+            <nav class="hidden md:flex items-center gap-1">
+                <a href="/" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="home" class="w-4 h-4"></i> Trang chủ</a>
+                <a href="/equipment" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="box" class="w-4 h-4"></i> Thiết bị</a>
+                <a href="/bookings" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Vận hành</a>
+                {% if current_user and current_user.role in ['ADMIN', 'STAFF'] %}
+                <a href="/admin" class="flex items-center gap-2 px-3 py-2 rounded hover:bg-white/10 text-sm font-medium"><i data-lucide="shield-alert" class="w-4 h-4"></i> Quản trị</a>
+                {% endif %}
+            </nav>
+
+            <div class="flex items-center gap-4">
+                {% if current_user %}
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold"><i data-lucide="user" class="w-4 h-4 inline"></i> {{ current_user.name }}</span>
+                        <a href="/logout" class="p-2 hover:bg-red-600 rounded-full transition" title="Đăng xuất"><i data-lucide="log-out" class="w-4 h-4"></i></a>
+                    </div>
+                {% else %}
+                    <a href="/login" class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-bold">
+                        <i data-lucide="log-in" class="w-4 h-4"></i> Đăng nhập
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 container mx-auto px-4 py-6 max-w-7xl">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-300 py-8 mt-auto no-print">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-widest text-teal-500 mb-2">Khoa Khoa Học Cơ Bản - CTUMP</p>
+            <p class="text-xs text-slate-500">Hệ thống quản lý trang thiết bị hiện đại version 2.0 (Python)</p>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
